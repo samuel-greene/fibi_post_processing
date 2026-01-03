@@ -1,5 +1,5 @@
 from PyQt5.QtCore import QThread, pyqtSignal
-import overlay_lib  # our custom overlay library
+from core import create_overlay  # our custom overlay function
 
 # --------------------------
 # Worker thread for overlay
@@ -22,7 +22,7 @@ class OverlayWorker(QThread):
                 self.opacity /= 100.0
             if self.opacity > 1.0 or self.opacity < 0.0:
                 raise ValueError("Opacity must be between 0 and 1.")
-            result = overlay_lib.overlay_images(
+            result = create_overlay(
                 fibi_path=self.fibi_path,
                 backlit_path=self.backlit_path,
                 output_path=self.output_path,
