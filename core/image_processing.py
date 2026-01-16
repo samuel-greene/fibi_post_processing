@@ -17,6 +17,8 @@ from skimage.transform import rotate
 from skimage.filters import sobel
 from scipy.ndimage import shift as nd_shift
 
+from lib import loglib
+
 # =========================
 #  REGISTRATION HELPERS
 # =========================
@@ -69,7 +71,7 @@ def load_reg_image(
 
         if debug:
             ds = slide.level_downsamples[level]
-            print(f"{os.path.basename(path)} level {level} dims ({wL}, {hL}) downsample {ds} scale_yx {scale_yx}")
+            loglib.Debug.log(f"{os.path.basename(path)} level {level} dims ({wL}, {hL}) downsample {ds} scale_yx {scale_yx}")
 
         return reg_rgb, scale_yx
 

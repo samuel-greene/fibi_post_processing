@@ -10,10 +10,13 @@ from PyQt5.QtWidgets import (
     QProgressDialog
 )
 import pyvips
+import time
 
 from gui import workers
 from gui.tabs.color_correction_tab import create_color_correction_tab
 from gui.tabs.overlay_tab import create_backlit_overlay_tab
+
+from lib import loglib
 
 class ImageEditorApp(QMainWindow):
     def __init__(self):
@@ -81,6 +84,8 @@ class ImageEditorApp(QMainWindow):
     # File loading and display
     # ========================================
     def load_image(self):
+        start = time.perf_counter()
+
         options = QFileDialog.Options()
         file_path, _ = QFileDialog.getOpenFileName(
             self,
@@ -97,45 +102,82 @@ class ImageEditorApp(QMainWindow):
 
         # Copy to temporary working file
         self.working_temp_file = os.path.join(tempfile.gettempdir(), f"working_{uuid.uuid4()}.tiff")
-        if file_path.lower().endswith(".svs"):
-            image = pyvips.Image.new_from_file(file_path, access='sequential')
-            image.write_to_file(self.working_temp_file)
-        else:
-            shutil.copy(file_path, self.working_temp_file)
+        # if file_path.lower().endswith(".svs"):
+        #     image = pyvips.Image.new_from_file(file_path, access='sequential')
+        #     image.write_to_file(self.working_temp_file)
+        # else:
+        shutil.copy(file_path, self.working_temp_file)
 
+        end = time.perf_counter()
+        loglib.Debug.log(f"Loaded image in {end - start:.2f} seconds.")
+        start = time.perf_counter()
         self.show_preview(self.working_temp_file)
-
+        end = time.perf_counter()
+        loglib.Debug.log(f"Displayed preview in {end - start:.2f} seconds.")
     def show_preview(self, filepath):
         try:
-            if filepath.lower().endswith((".svs", ".tiff", ".tif")):
-                image = pyvips.Image.new_from_file(filepath, access='sequential')
-                scale = max(image.width, image.height) / 800.0
+            if filepath.lower().endswith((".svs", ".tif", ".tiff")):
+                try:
+                    # 🔑 Fast path: pyramidal images (SVS, tiled TIFF)
+                    image = pyvips.Image.new_from_file(
+                        filepath,
+                        level=3,
+                        access="random"
+                    )
+                except pyvips.Error:
+                    # 🔁 Fallback: non-pyramidal TIFF
+                    image = pyvips.Image.thumbnail(
+                        filepath,
+                        max(self.image_label.width(), self.image_label.height())
+                    )
+
+                # Fit to label
+                scale = max(
+                    image.width / self.image_label.width(),
+                    image.height / self.image_label.height()
+                )
                 if scale > 1:
-                    image = image.resize(1/scale)
-                if image.bands == 3:
-                    data = image.write_to_memory()
-                    qimage = QImage(data, image.width, image.height, QImage.Format_RGB888)
-                elif image.bands == 4:
-                    data = image.write_to_memory()
-                    qimage = QImage(data, image.width, image.height, QImage.Format_RGBA8888)
+                    image = image.resize(1 / scale)
+
+                # Convert to displayable format
+                image = image.colourspace("srgb").cast("uchar")
+
+                data = image.write_to_memory()
+                bands = image.bands
+
+                if bands == 3:
+                    fmt = QImage.Format_RGB888
+                elif bands == 4:
+                    fmt = QImage.Format_RGBA8888
                 else:
-                    data = image.write_to_memory()
-                    qimage = QImage(data, image.width, image.height, QImage.Format_Grayscale8)
+                    fmt = QImage.Format_Grayscale8
+
+                qimage = QImage(
+                    data,
+                    image.width,
+                    image.height,
+                    image.width * bands,
+                    fmt
+                )
+
                 pixmap = QPixmap.fromImage(qimage)
+
             else:
                 pixmap = QPixmap(filepath)
 
+            # 🚀 Fast Qt scaling
             scaled = pixmap.scaled(
-                self.image_label.width(),
-                self.image_label.height(),
+                self.image_label.size(),
                 Qt.KeepAspectRatio,
-                Qt.SmoothTransformation
+                Qt.FastTransformation
             )
             self.image_label.setPixmap(scaled)
 
         except Exception as e:
-            print("Preview load error:", e)
-            self.image_label.setText("Failed preview load")
+            loglib.Debug.error(f"Preview load error: {e}")
+            self.image_label.setText("Failed load preview.")
+
+
 
     # ========================================
     # Backlit browsing
@@ -179,9 +221,13 @@ class ImageEditorApp(QMainWindow):
         )
         self.worker.done.connect(self.overlay_preview_finished)
         self.worker.error.connect(self.overlay_error)
+
+        self.overlay_timer = time.perf_counter()
         self.worker.start()
 
     def overlay_preview_finished(self, output_path):
+        self.overlay_timer = time.perf_counter() - self.overlay_timer
+        loglib.Debug.log(f"Overlay computed in {self.overlay_timer:.2f} seconds.")
         self.progress.close()
         # Replace working file with updated overlay
         self.working_temp_file = output_path
@@ -227,6 +273,7 @@ class ImageEditorApp(QMainWindow):
             return
 
         try:
+            loglib.Debug.log(self.working_temp_file)
             shutil.copy(self.working_temp_file, save_path)
             QMessageBox.information(self, "Success", "File saved!")
         except Exception as e:

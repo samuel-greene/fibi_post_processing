@@ -1,0 +1,6 @@
+2026-01-16.12:22:35 [INFO] : Loaded image in 4.17 seconds.
+2026-01-16.12:22:35 [INFO] : Displayed preview in 0.15 seconds.
+2026-01-16.12:22:42 [INFO] : slide_backlit.svs level 1 dims (1536, 2496) downsample 4.0 scale_yx [4.0012026 4.0019546]
+2026-01-16.12:22:42 [INFO] : slide_FIBI.svs level 1 dims (1536, 2496) downsample 4.0 scale_yx [4.0012026 4.0019546]
+2026-01-16.12:22:47 [INFO] : Overlay computed in 4.64 seconds.
+2026-01-16.12:22:59 [INFO] : /var/folders/8n/vv4p0ybx3z1cs7k2fgxmrgzw0000gn/T/overlay_b5cef998-5172-4066-b926-d36f0de967c0.tiff

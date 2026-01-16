@@ -17,7 +17,6 @@ class OverlayWorker(QThread):
 
     def run(self):
         try:
-            print(self.opacity)
             if self.opacity > 1:
                 self.opacity /= 100.0
             if self.opacity > 1.0 or self.opacity < 0.0:
