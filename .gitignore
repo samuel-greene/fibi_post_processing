@@ -1,2 +1,5 @@
 /__pycache__
 /.DS_Store
+core/__pycache__
+gui/__pycache__
+lib/__pycache__
